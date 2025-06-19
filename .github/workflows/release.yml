@@ -1,0 +1,67 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    continue-on-error: true
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            arch: amd64
+          - os: ubuntu-24.04-arm
+            arch: arm64
+    steps:
+      - uses: actions/checkout@v6
+      - uses: cachix/install-nix-action@v31
+      - uses: cachix/cachix-action@v16
+        with:
+          name: devenv
+      - name: Install devenv.sh
+        run: nix profile install nixpkgs#devenv
+      - name: Build the devenv shell and run any pre-commit hooks
+        run: devenv test
+
+      - name: Run a multi-line command in the devenv shell
+        shell: devenv shell bash -- -e {0}
+        run: |
+          prod
+          mv niri-outputs-generator niri-outputs-generator-${{ matrix.arch }}
+
+      - name: Upload artifact (${{ matrix.arch }})
+        uses: actions/upload-artifact@v6
+        with:
+          name: niri-outputs-generator-${{ matrix.arch }}
+          path: niri-outputs-generator-${{ matrix.arch }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-24.04
+    env:
+      GH_REPO: ${{ github.repository }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          path: ./artifacts
+
+      - name: Delete existing release
+        run: gh release delete latest --cleanup-tag --yes || echo "No existing release to delete"
+
+      - name: Create GitHub release
+        run: |
+          echo "$(tree)"
+
+          gh release create latest \
+            --title "latest" \
+            --notes "🙂✌️" \
+            ./artifacts/**/*
