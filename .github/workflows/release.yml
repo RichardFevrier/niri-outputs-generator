@@ -1,0 +1,68 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    continue-on-error: true
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            arch: amd64
+          - os: ubuntu-24.04-arm
+            arch: arm64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Odin
+        uses: laytan/setup-odin@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build (${{ matrix.arch }})
+        run: odin build src -out=niri-outputs-generator-${{ matrix.arch }}
+
+      - name: Upload artifact (${{ matrix.arch }})
+        uses: actions/upload-artifact@v4
+        with:
+          name: niri-outputs-generator-${{ matrix.arch }}
+          path: niri-outputs-generator-${{ matrix.arch }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-24.04
+    env:
+      GH_REPO: ${{ github.repository }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+
+      - name: Check artifacts
+        run: |
+          if [ -z "$(ls -A ./artifacts)" ]; then
+              echo "No artifacts generated!"
+              exit 1
+          fi
+
+      - name: Delete existing release
+        run: gh release delete latest --cleanup-tag --yes || echo "No existing release to delete"
+
+      - name: Create GitHub release
+        run: |
+          gh release create latest \
+            --title "latest" \
+            --notes "🙂✌️" \
+            ./artifacts/**/*
