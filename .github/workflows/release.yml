@@ -23,11 +23,13 @@ jobs:
           path: ./artifacts
 
       - name: Delete release and tag
-        run: gh release delete latest --cleanup-tag --yes || true
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release delete latest --cleanup-tag --yes || true
 
       - name: Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release create latest \
             --title "latest" \

@@ -3,7 +3,7 @@ package main
 import "core:fmt"
 import "core:mem"
 import "core:os"
-import "core:os/os2"
+import "core:os/old"
 import "core:strconv"
 import "core:strings"
 import "core:text/regex"
@@ -46,22 +46,22 @@ main :: proc() {
 
 	path := os.args[1:][0][7:]
 
-	file, err := os.open(path, os.O_RDWR | os.O_APPEND)
-	defer os.close(file)
+	file, err := old.open(path, old.O_RDWR | old.O_APPEND)
+	defer old.close(file)
 	if err != nil {
 		fmt.println("Error no valid file at path ", path)
 		return
 	}
 
-	data, err2 := os.read_entire_file_from_handle_or_err(file)
+	data, err2 := old.read_entire_file_from_handle_or_err(file)
 	defer delete(data)
 	if err2 != nil {
 		fmt.println("Error reading the file")
 		return
 	}
 
-	state, stdout, stderr, err3 := os2.process_exec(
-		os2.Process_Desc{command = []string{"niri", "msg", "outputs"}},
+	state, stdout, stderr, err3 := os.process_exec(
+		os.Process_Desc{command = []string{"niri", "msg", "outputs"}},
 		context.allocator,
 	)
 	defer delete(stdout)
@@ -165,7 +165,7 @@ main :: proc() {
 		return
 	}
 
-	os.write_string(file, final_str)
+	old.write_string(file, final_str)
 
 	fmt.println("Config updated!")
 }
