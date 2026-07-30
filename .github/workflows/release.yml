@@ -1,4 +1,4 @@
-name: Release
+name: Build and Release
 
 on:
   push:
@@ -6,54 +6,29 @@ on:
       - main
   workflow_dispatch:
 
-permissions:
-  contents: write
-
 jobs:
   build:
-    runs-on: ${{ matrix.os }}
-    continue-on-error: true
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu-24.04
-            arch: amd64
-          - os: ubuntu-24.04-arm
-            arch: arm64
-    steps:
-      - uses: actions/checkout@v7
-      - uses: cachix/install-nix-action@v31
-
-      - name: Build binary
-        run: nix develop --command just prod
-
-      - name: Rename binary
-        run: mv niri-outputs-generator niri-outputs-generator-${{ matrix.arch }}
-
-      - name: Upload artifact (${{ matrix.arch }})
-        uses: actions/upload-artifact@v7
-        with:
-          name: niri-outputs-generator-${{ matrix.arch }}
-          path: niri-outputs-generator-${{ matrix.arch }}
+    uses: ./.github/workflows/build.yml
 
   release:
     needs: build
-    runs-on: ubuntu-24.04
-    env:
-      GH_REPO: ${{ github.repository }}
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    permissions:
+      contents: write
+    runs-on: ubuntu-24.04-arm
     steps:
+      - uses: actions/checkout@v7
+
       - uses: actions/download-artifact@v8
         with:
           path: ./artifacts
 
-      - name: Delete existing release
-        run: gh release delete latest --cleanup-tag --yes || echo "No existing release to delete"
+      - name: Delete release and tag
+        run: gh release delete latest --cleanup-tag --yes || true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Create GitHub release
+      - name: Release
         run: |
-          echo "$(tree)"
-
           gh release create latest \
             --title "latest" \
             --notes "🙂✌️" \
